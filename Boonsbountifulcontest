@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Boon’s Bountiful Contest Sign-up (Medieval Kingdom)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet">
+  <style>
+    /* Set Inter as the default font for the entire document */
+    :root {
+      font-family: 'Inter', sans-serif;
+    }
+    /* Hide number input arrows (Governor ID, Server) */
+    .hide-arrows::-webkit-outer-spin-button,
+    .hide-arrows::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    .hide-arrows {
+      -moz-appearance: textfield;
+    }
+    /* Custom background with overlay for readability */
+    body {
+      /* Medieval castle/kingdom image */
+      background-image: url('https://images.unsplash.com/photo-1620703875390-36a591e1d234?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D'); 
+      background-size: cover;
+      background-position: center;
+      background-attachment: fixed; /* Keeps background fixed during scroll */
+      position: relative;
+    }
+    body::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.7); /* Dark overlay for better text contrast */
+      backdrop-filter: blur(2px); /* Subtle blur on the background image */
+      z-index: -1;
+    }
+
+    /* Custom glow effect for the main container */
+    .glowing-border {
+      box-shadow: 0 0 15px rgba(70, 150, 255, 0.2), 0 0 30px rgba(59, 130, 246, 0.1);
+      border: 1px solid rgba(59, 130, 246, 0.3);
+    }
+    .glowing-border:hover {
+        box-shadow: 0 0 20px rgba(70, 150, 255, 0.3), 0 0 40px rgba(59, 130, 246, 0.15);
+        border: 1px solid rgba(59, 130, 246, 0.4);
+    }
+  </style>
+</head>
+<body>
+  <div id="root">
+    <div class="flex items-center justify-center min-h-screen">
+      <div class="text-slate-300 text-xl animate-pulse">Loading Application...</div>
+    </div>
+  </div>
+
+  <script type="text/babel">
+    const { useEffect, useState } = React;
+
+    // ----------------------------------------------------------------------
+    // 1. CONFIGURATION CONSTANTS
+    // ----------------------------------------------------------------------
+    const DISCORD_INVITE = "https://discord.gg/8G5EDhmKD"; 
+    // Tournament Start: November 1, 2025, 00:00:00 UTC
+    const TOURNAMENT_START = new Date(Date.UTC(2025, 10, 1, 0, 0, 0)); 
+    
+    // ----------------------------------------------------------------------
+    // 2. HELPER COMPONENTS/FUNCTIONS
+    // ----------------------------------------------------------------------
+
+    function TimeBlock({ label, value }) {
+      return (
+        <div className="bg-slate-800/50 rounded-lg p-3 border border-blue-700/50 shadow-inner shadow-blue-900/50">
+          <div className="text-2xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 to-blue-200 drop-shadow-lg">
+            {String(value).padStart(2, "0")}
+          </div>
+          <div className="text-xs text-blue-300 uppercase font-medium mt-1 tracking-widest">{label}</div>
+        </div>
+      );
+    }
+    
+    function formatDate(d) {
+      const options = { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' };
+      return d.toLocaleDateString('en-US', options).replace(/,/, ' @');
+    }
+
+    // Calculate time remaining until the tournament start
+    function getTimeRemaining() {
+      const now = new Date();
+      const diff = TOURNAMENT_START - now;
+      if (diff <= 0) return { days: 0, hours: 0, minutes: 0, seconds: 0, finished: true };
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
+      const minutes = Math.floor((diff / (1000 * 60)) % 60);
+      const seconds = Math.floor((diff / 1000) % 60);
+      return { days, hours, minutes, seconds, finished: false };
+    }
+
+    // Function to copy text to clipboard
+    async function copyToClipboard(text, setMessage) {
+        if (!navigator.clipboard) {
+            setMessage("❌ Clipboard access denied. Copy manually.");
+            return;
+        }
+        try {
+            await navigator.clipboard.writeText(text);
+            setMessage("✅ Governor ID link copied!");
+            // Clear message after a short delay
+            setTimeout(() => setMessage(null), 3000); 
+        } catch (err) {
+            console.error('Failed to copy text: ', err);
+            setMessage("❌ Copy failed. Try manually.");
+        }
+    }
+
+
+    // ----------------------------------------------------------------------
+    // 3. MAIN APP COMPONENT
+    // ----------------------------------------------------------------------
+
+    function App() {
+      const [countdown, setCountdown] = useState(getTimeRemaining());
+      const [formState, setFormState] = useState({
+        inGameName: "",
+        alliance: "",
+        server: "",
+        governorId: "",
+        playStatus: "free-to-play",
+      });
+      const [formErrors, setFormErrors] = useState({});
+      const [submitting, setSubmitting] = useState(false);
+      const [submitMessage, setSubmitMessage] = useState("");
+      const [copyMessage, setCopyMessage] = useState(null); // New state for copy feedback
+
+      // Countdown timer effect
+      useEffect(() => {
+        const timer = setInterval(() => {
+          setCountdown(getTimeRemaining());
+        }, 1000);
+        return () => clearInterval(timer);
+      }, []);
+
+      // Client-side validation function
+      function validateForm() {
+        const errors = {};
+        if (!formState.inGameName.trim()) {
+          errors.inGameName = "In-Game Name is required.";
+        }
+        if (!formState.alliance.trim()) {
+          errors.alliance = "Alliance Tag/Name is required.";
+        }
+        if (!formState.server || isNaN(parseInt(formState.server)) || parseInt(formState.server) < 1) {
+          errors.server = "Valid Server # is required.";
+        }
+        if (!formState.governorId || isNaN(parseInt(formState.governorId)) || parseInt(formState.governorId) < 10000000) {
+          errors.governorId = "Valid Governor ID (8+ digits) is required.";
+        }
+        setFormErrors(errors);
+        return Object.keys(errors).length === 0;
+      }
+
+      // Handle form input changes
+      function handleChange(e) {
+        const { name, value } = e.target;
+        setFormState((s) => ({ ...s, [name]: value }));
+        // Clear error as the user types
+        setFormErrors((e) => ({ ...e, [name]: "" }));
+      }
+
+      // Handle form submission - NOW MOCK MODE ONLY
+      async function handleSubmit(e) {
+        e.preventDefault();
+        setSubmitMessage("");
+        
+        if (!validateForm()) {
+          return;
+        }
+
+        setSubmitting(true);
+
+        // --- MOCK SUBMISSION LOGIC ---
+        // Simulates a successful network request and data processing delay.
+        await new Promise(resolve => setTimeout(resolve, 1500)); 
+
+        const dataSubmitted = {
+          timestamp: new Date().toISOString(),
+          inGameName: formState.inGameName,
+          alliance: formState.alliance,
+          server: formState.server,
+          governorId: formState.governorId,
+          playStatus: formState.playStatus,
+        };
+
+        console.log("Mock Submission Success. Data that would have been sent:", dataSubmitted);
+
+        // Update UI state
+        setSubmitMessage("✅ Success! Your sign-up data passed validation (Mock Mode).");
+        // Clear form after successful mock submission
+        setFormState({ inGameName: "", alliance: "", server: "", governorId: "", playStatus: "free-to-play" });
+        setSubmitting(false);
+        // --- END MOCK SUBMISSION LOGIC ---
+      }
+
+      const isTournamentStarted = countdown.finished;
+
+      return (
+        <div className="min-h-screen text-slate-100 flex items-center justify-center p-4 sm:p-6 font-['Inter'] relative z-10">
+          <div className="max-w-5xl w-full bg-[#0a1b32]/90 glowing-border rounded-2xl overflow-hidden backdrop-blur-md transition-all duration-300">
+            
+            {/* HERO */}
+            <header className="relative grid grid-cols-1 md:grid-cols-2 gap-6 p-6 md:p-12 items-center border-b border-blue-800/30">
+              <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6">
+                {/* Logo - Placeholder SVG Shield with Glow */}
+                <div className="flex-shrink-0">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-24 h-24 sm:w-36 sm:h-36 text-cyan-400 drop-shadow-[0_0_8px_rgba(42,160,255,0.7)]" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 1L3 4v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V4l-9-3zm0 18.9c-3.72-1.04-6.8-5.35-6.8-9.9V5.1L12 2.7l5.8 2.4v4.9c0 4.55-3.08 8.86-6.8 9.9zM12 9a3 3 0 100 6 3 3 0 000-6z" />
+                  </svg>
+                </div>
+                <div>
+                  <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-blue-300 to-cyan-300 leading-tight drop-shadow-md">Boon’s Bountiful Contest</h1>
+                  <p className="mt-2 text-lg sm:text-xl text-blue-300 italic font-semibold drop-shadow-sm">“Where honour is earned, not bought”</p>
+                  <div className="mt-4 flex flex-wrap items-center gap-3">
+                    <a
+                      href={DISCORD_INVITE}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-blue-400/30 text-blue-300 hover:bg-blue-900/50 transition-all duration-200 text-sm shadow-md"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucid-discord"><path d="M.4 21.1c.4-.3 1.5-.7 1.5-.7s.3.4.7.7c.3.2 1.2.6 1.8.8 1.1.4 3.7.6 6.6.6s5.5-.2 6.6-.6c.6-.2 1.5-.6 1.8-.8.4-.3.7-.7.7-.7s1.1.4 1.5.7l1.7 1.1L24 1.7l-2.8 1.5c-1.5-.5-3.4-.8-5.7-.9-2.3-.1-4.7.1-7.2.4-2.5.3-4.8.9-7.2 1.8L0 1.7l.4 19.4zM7.5 13.9c-.8 0-1.4-.6-1.4-1.4s.6-1.4 1.4-1.4 1.4.6 1.4 1.4-.6 1.4-1.4 1.4zm9 0c-.8 0-1.4-.6-1.4-1.4s.6-1.4 1.4-1.4 1.4.6 1.4 1.4-.6 1.4-1.4 1.4z" /></svg>
+                      Join our Discord
+                    </a>
+                    <a
+                      href="#rules"
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-700/60 hover:bg-slate-700/70 text-slate-100 transition-all duration-200 text-sm shadow-md"
+                    >
+                      Tournament Rules
+                    </a>
+                  </div>
+                </div>
+              </div>
+              
+              {/* COUNTDOWN */}
+              <div className="flex flex-col items-end justify-center">
+                <p className="text-sm font-semibold text-blue-300 uppercase tracking-widest mb-2">Tournament Starts (UTC)</p>
+                <p className="text-xl font-medium text-cyan-200 mb-4">{formatDate(TOURNAMENT_START)}</p>
+                
+                {isTournamentStarted ? (
+                    <div className="text-2xl font-bold text-red-400 bg-red-900/50 p-3 rounded-lg border border-red-400/30 w-full text-center">
+                        ⚔️ CONTEST IS LIVE! ⚔️
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-4 gap-3 w-full">
+                        <TimeBlock label="Days" value={countdown.days} />
+                        <TimeBlock label="Hours" value={countdown.hours} />
+                        <TimeBlock label="Minutes" value={countdown.minutes} />
+                        <TimeBlock label="Seconds" value={countdown.seconds} />
+                    </div>
+                )}
+              </div>
+            </header>
+            
+            {/* MAIN CONTENT */}
+            <main className="p-6 md:p-12 grid grid-cols-1 lg:grid-cols-3 gap-12">
+                
+                {/* SIGN-UP FORM (Left Column on Desktop) */}
+                <section className="lg:col-span-2">
+                    <h2 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-300 to-white mb-6 border-b border-blue-700/50 pb-2 flex items-center gap-3">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-scroll"><path d="M5 2c0-1 1-1 1-1h12s1 0 1 1-1 2-1 3 1 2 1 3-1 2-1 3 1 2 1 3-1 2-1 3v2c0 1-1 1-1 1H6c-1 0-1-1-1-1v-2s1-2 1-3-1-2-1-3 1-2 1-3-1-2-1-3z"/></svg>
+                        Sign-up for the Contest
+                    </h2>
+                    
+                    <form onSubmit={handleSubmit} className="space-y-6">
+                        {/* Governor Name */}
+                        <div>
+                            <label htmlFor="inGameName" className="block text-sm font-medium text-blue-300 mb-1">In-Game Name <span className="text-red-400">*</span></label>
+                            <input
+                                type="text"
+                                id="inGameName"
+                                name="inGameName"
+                                value={formState.inGameName}
+                                onChange={handleChange}
+                                className={`w-full p-3 rounded-lg bg-slate-800/70 border ${formErrors.inGameName ? 'border-red-500' : 'border-blue-700/50'} text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500`}
+                                placeholder="e.g., KingBoon"
+                                required
+                            />
+                            {formErrors.inGameName && <p className="text-red-400 text-sm mt-1 flex items-center gap-1">⚠️ {formErrors.inGameName}</p>}
+                        </div>
+
+                        {/* Alliance Tag */}
+                        <div>
+                            <label htmlFor="alliance" className="block text-sm font-medium text-blue-300 mb-1">Alliance Tag/Name <span className="text-red-400">*</span></label>
+                            <input
+                                type="text"
+                                id="alliance"
+                                name="alliance"
+                                value={formState.alliance}
+                                onChange={handleChange}
+                                className={`w-full p-3 rounded-lg bg-slate-800/70 border ${formErrors.alliance ? 'border-red-500' : 'border-blue-700/50'} text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500`}
+                                placeholder="e.g., [Boons] Bountiful Alliance"
+                                required
+                            />
+                            {formErrors.alliance && <p className="text-red-400 text-sm mt-1 flex items-center gap-1">⚠️ {formErrors.alliance}</p>}
+                        </div>
+
+                        {/* Server & Governor ID (Side-by-side) */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                            <div>
+                                <label htmlFor="server" className="block text-sm font-medium text-blue-300 mb-1">Server # <span className="text-red-400">*</span></label>
+                                <input
+                                    type="number"
+                                    id="server"
+                                    name="server"
+                                    value={formState.server}
+                                    onChange={handleChange}
+                                    className={`hide-arrows w-full p-3 rounded-lg bg-slate-800/70 border ${formErrors.server ? 'border-red-500' : 'border-blue-700/50'} text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500`}
+                                    placeholder="e.g., 1234"
+                                    min="1"
+                                    required
+                                />
+                                {formErrors.server && <p className="text-red-400 text-sm mt-1 flex items-center gap-1">⚠️ {formErrors.server}</p>}
+                            </div>
+                            
+                            <div>
+                                <label htmlFor="governorId" className="block text-sm font-medium text-blue-300 mb-1">Governor ID <span className="text-red-400">*</span></label>
+                                <div className="flex relative">
+                                    <input
+                                        type="number"
+                                        id="governorId"
+                                        name="governorId"
+                                        value={formState.governorId}
+                                        onChange={handleChange}
+                                        className={`hide-arrows w-full p-3 pr-14 rounded-l-lg bg-slate-800/70 border ${formErrors.governorId ? 'border-red-500' : 'border-blue-700/50'} text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500`}
+                                        placeholder="e.g., 98765432"
+                                        min="10000000"
+                                        required
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => copyToClipboard('https://roc.guide/govid=' + formState.governorId, setCopyMessage)}
+                                        className="absolute right-0 top-0 h-full w-12 flex items-center justify-center bg-blue-700/80 rounded-r-lg hover:bg-blue-600/90 transition-colors duration-200"
+                                        title="Copy Governor ID link to clipboard"
+                                        disabled={!formState.governorId || formErrors.governorId}
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-copy text-white"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                                    </button>
+                                </div>
+                                {formErrors.governorId && <p className="text-red-400 text-sm mt-1 flex items-center gap-1">⚠️ {formErrors.governorId}</p>}
+                                {copyMessage && (
+                                    <p className={`text-sm mt-1 flex items-center gap-1 ${copyMessage.startsWith("✅") ? 'text-green-400' : 'text-red-400'}`}>
+                                        {copyMessage.startsWith("✅") ? '🎉' : '❌'} {copyMessage.replace(/^[✅❌]/, '').trim()}
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Play Status Radio */}
+                        <div>
+                            <label className="block text-sm font-medium text-blue-300 mb-2">Play Status</label>
+                            <div className="flex flex-wrap gap-4">
+                                <label className="inline-flex items-center cursor-pointer">
+                                    <input
+                                        type="radio"
+                                        name="playStatus"
+                                        value="free-to-play"
+                                        checked={formState.playStatus === "free-to-play"}
+                                        onChange={handleChange}
+                                        className="form-radio h-5 w-5 text-cyan-500 bg-slate-800 border-blue-700/50 focus:ring-cyan-500"
+                                    />
+                                    <span className="ml-2 text-slate-200">Free-to-Play (F2P)</span>
+                                </label>
+                                <label className="inline-flex items-center cursor-pointer">
+                                    <input
+                                        type="radio"
+                                        name="playStatus"
+                                        value="low-spender"
+                                        checked={formState.playStatus === "low-spender"}
+                                        onChange={handleChange}
+                                        className="form-radio h-5 w-5 text-cyan-500 bg-slate-800 border-blue-700/50 focus:ring-cyan-500"
+                                    />
+                                    <span className="ml-2 text-slate-200">Low Spender (Minnow)</span>
+                                </label>
+                                <label className="inline-flex items-center cursor-pointer">
+                                    <input
+                                        type="radio"
+                                        name="playStatus"
+                                        value="high-spender"
+                                        checked={formState.playStatus === "high-spender"}
+                                        onChange={handleChange}
+                                        className="form-radio h-5 w-5 text-cyan-500 bg-slate-800 border-blue-700/50 focus:ring-cyan-500"
+                                    />
+                                    <span className="ml-2 text-slate-200">High Spender (Whale)</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        {/* Submit Button and Message Area */}
+                        <div>
+                            <button
+                                type="submit"
+                                disabled={submitting || isTournamentStarted}
+                                className={`w-full py-3 rounded-lg text-lg font-bold transition-all duration-300 shadow-xl ${
+                                    submitting || isTournamentStarted
+                                        ? "bg-slate-600 cursor-not-allowed text-slate-400"
+                                        : "bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white transform hover:scale-[1.01]"
+                                }`}
+                            >
+                                {isTournamentStarted ? "Contest is Live! Sign-ups Closed." : submitting ? "Submitting..." : "Sign Up for Glory!"}
+                            </button>
+                        </div>
+                        
+                        {/* Submission Feedback Message */}
+                        {submitMessage && (
+                            <div 
+                                role="alert" 
+                                className={`mt-4 p-4 rounded-lg font-medium text-center ${
+                                    submitMessage.startsWith("✅") ? "bg-green-900/50 text-green-300 border border-green-700/50" : 
+                                    submitMessage.startsWith("❌") ? "bg-red-900/50 text-red-300 border border-red-700/50" : 
+                                    "bg-yellow-900/50 text-yellow-300 border border-yellow-700/50"
+                                }`}
+                            >
+                                {submitMessage}
+                            </div>
+                        )}
+                        
+                    </form>
+                </section>
+
+                {/* RULES & NOTES (Right Column on Desktop) */}
+                <section className="lg:col-span-1 border-t lg:border-t-0 lg:border-l border-blue-800/30 pt-6 lg:pt-0 lg:pl-6 space-y-8" id="rules">
+                    <h2 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-300 to-white mb-4 border-b border-blue-700/50 pb-2 flex items-center gap-3">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-book-open-check"><path d="M8 2h4c1.1 0 2 .9 2 2v16c0 1.1-.9 2-2 2H8"/><path d="M2 20h2c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2H2"/><path d="M22 6c-3.1-2-6.8-3-11.8-3C5 3 2 6.1 2 12c0 2.2.7 4.3 2 6"/><path d="m16 11 2 2 4-4"/></svg>
+                        Tournament Scroll
+                    </h2>
+                    
+                    <div>
+                        <h3 className="text-xl font-semibold text-cyan-400 mb-2">The Contest Rules</h3>
+                        <ul className="text-slate-300 space-y-3 list-disc list-inside ml-2">
+                            <li>All participants must be a member of the <a href={DISCORD_INVITE} target="_blank" rel="noreferrer" className="text-blue-400 hover:text-blue-300 font-medium underline">official Discord</a> for communication.</li>
+                            <li>The contest is based on **individual merit** and **power gain** over the duration.</li>
+                            <li>Governors must not change their In-Game Name, Alliance, or Server after sign-up.</li>
+                            <li>Final eligibility and placement will be determined by the host (Boon).</li>
+                            <li>**Cheating** or **account sharing** is strictly forbidden and results in disqualification.</li>
+                        </ul>
+                    </div>
+
+                    <div>
+                        <h3 className="text-xl font-semibold text-cyan-400 mb-2">Important Notes</h3>
+                        <p className="text-slate-300">
+                            The Governor ID is required for verification to ensure the right player receives the right prize. Please **double-check** your ID. You can find your ID by tapping your avatar in the top left corner of the game screen.
+                        </p>
+                        <p className="text-sm italic text-blue-300 mt-3">
+                            **Tip:** After entering your ID, use the **blue copy button** next to the field to copy the ID link (`https://roc.guide/govid=...`) for easy sharing.
+                        </p>
+                    </div>
+                </section>
+            </main>
+
+            {/* FOOTER */}
+            <footer className="p-4 text-center text-xs text-slate-500 border-t border-blue-800/30">
+                &copy; {new Date().getFullYear()} Boon's Bountiful Contest. All rights reserved. Game content is the property of its respective owners.
+            </footer>
+
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.render(<App />, document.getElementById('root'));
+  </script>
+</body>
+</html>
