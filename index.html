@@ -291,7 +291,7 @@
                                 value={formState.inGameName}
                                 onChange={handleChange}
                                 className={`w-full p-3 rounded-lg bg-slate-800/70 border ${formErrors.inGameName ? 'border-red-500' : 'border-blue-700/50'} text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500`}
-                                placeholder="e.g., KingBoon"
+                                placeholder="e.g., Gladitard"
                                 required
                             />
                             {formErrors.inGameName && <p className="text-red-400 text-sm mt-1 flex items-center gap-1">⚠️ {formErrors.inGameName}</p>}
@@ -307,7 +307,7 @@
                                 value={formState.alliance}
                                 onChange={handleChange}
                                 className={`w-full p-3 rounded-lg bg-slate-800/70 border ${formErrors.alliance ? 'border-red-500' : 'border-blue-700/50'} text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500`}
-                                placeholder="e.g., [Boons] Bountiful Alliance"
+                                placeholder="e.g., COA Coalition146"
                                 required
                             />
                             {formErrors.alliance && <p className="text-red-400 text-sm mt-1 flex items-center gap-1">⚠️ {formErrors.alliance}</p>}
@@ -324,7 +324,7 @@
                                     value={formState.server}
                                     onChange={handleChange}
                                     className={`hide-arrows w-full p-3 rounded-lg bg-slate-800/70 border ${formErrors.server ? 'border-red-500' : 'border-blue-700/50'} text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500`}
-                                    placeholder="e.g., 1234"
+                                    placeholder="e.g., 146"
                                     min="1"
                                     required
                                 />
